@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>RBI Economic Dashboard</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f7f9fa;
+      padding: 20px;
+      text-align: center;
+    }
+    h1 {
+      color: #333;
+    }
+    .card-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .card {
+      background: white;
+      padding: 15px;
+      margin: 10px;
+      width: 260px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      transition: 0.3s;
+    }
+    .card:hover {
+      transform: scale(1.03);
+    }
+    canvas {
+      max-width: 800px;
+      margin: 40px auto;
+      display: block;
+    }
+    .footer-note {
+      color: #666;
+      margin-top: 10px;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+  <h1>RBI Live Economic Dashboard</h1>
+
+  <div id="cards" class="card-container"></div>
+
+  <canvas id="exchangeChart"></canvas>
+  <div id="timestamp" class="footer-note"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const BASE_URL = "http://127.0.0.1:5050";
+
+    async function loadDashboard() {
+      try {
+        const res = await fetch(`${BASE_URL}/rbi-data`);
+        const data = await res.json();
+
+        const cardContainer = document.getElementById("cards");
+
+        // Show all RBI categories as cards
+        const categories = ["policy_rates", "reserve_ratios", "deposit_rates", "market_trends"];
+        categories.forEach(cat => {
+          data[cat]?.forEach(item => {
+            const card = document.createElement("div");
+            card.className = "card";
+            const parts = item.split(":");
+            if (parts.length === 2) {
+              card.innerHTML = `<h3>${parts[0].trim()}</h3><p>${parts[1].trim()}</p>`;
+            } else {
+              card.innerHTML = `<p>${item}</p>`;
+            }
+            cardContainer.appendChild(card);
+          });
+        });
+
+        // Exchange rate chart
+        const labels = [];
+        const values = [];
+        let exchangeTimestamp = "";
+
+        data.exchange_rates.forEach(rate => {
+          if (typeof rate === "string" && rate.includes(":")) {
+            const [label, val] = rate.split(":");
+            labels.push(label.trim());
+            const number = parseFloat(val.replace(/[^\d.]/g, ""));
+            values.push(isNaN(number) ? 0 : number);
+          } else if (typeof rate === "string" && rate.includes("As at")) {
+            exchangeTimestamp = rate;
+          }
+        });
+
+        if (exchangeTimestamp) {
+          document.getElementById("timestamp").innerText = exchangeTimestamp;
+        }
+
+        new Chart(document.getElementById("exchangeChart"), {
+          type: "bar",
+          data: {
+            labels,
+            datasets: [{
+              label: "INR Exchange Rates",
+              data: values,
+              backgroundColor: "#007bff"
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { display: false },
+              title: {
+                display: true,
+                text: "INR Exchange Rates"
+              }
+            }
+          }
+        });
+
+      } catch (err) {
+        document.body.innerHTML += `<p style="color:red">Failed to load data: ${err.message}</p>`;
+        console.error(err);
+      }
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>
