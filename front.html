@@ -10,35 +10,55 @@
       padding: 20px;
       text-align: center;
     }
-    h1 {
-      color: #333;
+
+    h1, h2 {
+      color: #222;
     }
+
     .card-container {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
+      margin-top: 20px;
     }
+
     .card {
       background: white;
       padding: 15px;
       margin: 10px;
       width: 260px;
       border-radius: 10px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
       transition: 0.3s;
     }
+
     .card:hover {
       transform: scale(1.03);
     }
+
     canvas {
       max-width: 800px;
       margin: 40px auto;
       display: block;
     }
+
+    #gdpChartImage {
+      margin: 40px auto;
+      max-width: 800px;
+      display: block;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
     .footer-note {
       color: #666;
       margin-top: 10px;
       font-size: 0.9em;
+    }
+
+    .error {
+      color: red;
+      margin-top: 20px;
     }
   </style>
 </head>
@@ -50,6 +70,9 @@
   <canvas id="exchangeChart"></canvas>
   <div id="timestamp" class="footer-note"></div>
 
+  <h2>GDP Chart</h2>
+  <img id="gdpChartImage" src="" alt="GDP Chart from RBI" />
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     const BASE_URL = "http://127.0.0.1:5050";
@@ -60,24 +83,26 @@
         const data = await res.json();
 
         const cardContainer = document.getElementById("cards");
-
-        // Show all RBI categories as cards
         const categories = ["policy_rates", "reserve_ratios", "deposit_rates", "market_trends"];
+
         categories.forEach(cat => {
-          data[cat]?.forEach(item => {
-            const card = document.createElement("div");
-            card.className = "card";
-            const parts = item.split(":");
-            if (parts.length === 2) {
-              card.innerHTML = `<h3>${parts[0].trim()}</h3><p>${parts[1].trim()}</p>`;
-            } else {
-              card.innerHTML = `<p>${item}</p>`;
-            }
-            cardContainer.appendChild(card);
-          });
+          if (data[cat]) {
+            data[cat].forEach(item => {
+              const card = document.createElement("div");
+              card.className = "card";
+              const parts = item.split(":");
+
+              if (parts.length === 2) {
+                card.innerHTML = `<h3>${parts[0].trim()}</h3><p>${parts[1].trim()}</p>`;
+              } else {
+                card.innerHTML = `<p>${item}</p>`;
+              }
+
+              cardContainer.appendChild(card);
+            });
+          }
         });
 
-        // Exchange rate chart
         const labels = [];
         const values = [];
         let exchangeTimestamp = "";
@@ -120,12 +145,34 @@
         });
 
       } catch (err) {
-        document.body.innerHTML += `<p style="color:red">Failed to load data: ${err.message}</p>`;
-        console.error(err);
+        document.body.innerHTML += `<p class="error">Failed to load RBI data: ${err.message}</p>`;
+        console.error("RBI Data Load Error:", err);
       }
     }
 
-    loadDashboard();
+    async function loadGdpChart() {
+      try {
+        const res = await fetch(`${BASE_URL}/gdp-chart`);
+        const data = await res.json();
+
+        const gdpImg = document.getElementById("gdpChartImage");
+
+        if (data.gdp_chart_base64) {
+          gdpImg.src = `data:image/png;base64,${data.gdp_chart_base64}`;
+        } else {
+          gdpImg.style.display = "none";
+          document.body.innerHTML += `<p class="error">Failed to load GDP chart: ${data.error || "No image data"}</p>`;
+        }
+      } catch (err) {
+        console.error("GDP Chart Load Error:", err);
+        document.body.innerHTML += `<p class="error">Error loading GDP chart: ${err.message}</p>`;
+      }
+    }
+
+    window.onload = function () {
+      loadDashboard();
+      loadGdpChart();
+    };
   </script>
 </body>
 </html>
